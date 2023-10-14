@@ -1,6 +1,7 @@
 import os
 import random
 import math
+from typing import Any
 import pygame
 from os import listdir
 from os.path import isfile, join
@@ -121,10 +122,34 @@ class Player(pygame.sprite.Sprite):
         self.y_vel = 0
 
     def update_sprite(self):
-        return None
+        sprite_sheet = "idle"
+        if self.hit:
+            sprite_sheet = "hit"
+        elif self.y_vel < 0:
+            if self.jump_count == 1:
+                sprite_sheet ="jump"
+            elif self.jump_count == 2:
+                sprite_sheet="double_jump"
+        elif self.y_vel > self.GRAVITY * 2:
+            sprite_sheet = "fall"
+        elif self.x_vel != 0:
+            sprite_sheet ="run"
 
-    def draw(self, win):
-        pygame.draw.rect(win, self.COLOR, self.rect)
+        sprite_sheet_name = sprite_sheet + '_' + self.direction
+        sprites = self.SPRITES[sprite_sheet_name]
+        sprite_index = (self.animation_count//self.ANIMATION_DELAY)%len(sprites)
+        self.sprite = sprites[sprite_index]
+        self.animation_count += 1
+        self.update
+
+    def update(self):
+        self.rect = self.sprite.get_rect(topleft=(self.rect.x, self.rect.y))
+        self.mask = pygame.mask.from_surface(self.sprite)
+
+    def draw(self, win, offset_x):
+        win.blit(self.sprite,(self.rect.x-offset_x, self.rect.y))
+
+
 
 def get_background(name):
     image = pygame.image.load(join("Assets", "Background", name))
