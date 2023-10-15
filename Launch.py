@@ -6,7 +6,7 @@ import pygame
 from os import listdir
 from os.path import isfile, join
 
-from pygame.sprite import _Group, Group
+from pygame.sprite import Group
 
 pygame.init()
 
@@ -98,7 +98,7 @@ class Player(pygame.sprite.Sprite):
             self.direction = "right"
             self.animation_count = 0
 
-    def gravity_loop(self, fps):
+    def loop(self, fps):
         self.y_vel += min(self.GRAVITY, (self.fall_count/fps)*self.GRAVITY)
         self.move(self.x_vel, self.y_vel)
 
@@ -153,9 +153,9 @@ class Object(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, name=None):
         super().__init__()
         self.rect = pygame.Rect(x,y,width, height)
-        self.image = pygame.Surface((width, height), pygame, SRCALPHA)
+        self.image = pygame.Surface((width, height), pygame.SRCALPHA)
         self.width = width
-        self.height - height
+        self.height = height
         self.name = name
 
     def draw(self, win, offset_x):
@@ -173,7 +173,7 @@ class Fire(Object):
 
     def __init__(self, x, y, width, height):
         super().__init__(x, y, width, height, "fire")
-        self.fire = load_sprite_sheets("Traps", "Fire" width, height)
+        self.fire = load_sprite_sheets("Traps", "Fire", width, height)
         self.image = self.fire["off"][0]
         self.mask = pygame.mask.from_surface(self.image)
         self.animation_count = 0
@@ -204,11 +204,14 @@ def get_background(name):
 
     return tiles, image
 
-def draw(window, background, bg_image, player):
+def draw(window, background, bg_image, player, objects, offset_x):
     for tile in background:
         window.blit(bg_image, tile)
 
-    player.draw(window)
+    for obj in objects:
+        obj.draw(window, offset_x)
+
+    player.draw(window, offset_x)
 
     pygame.display.update()
 
@@ -240,14 +243,23 @@ def collide(player, objects, dx):
     player.update()
     return collided_object
 
-def handle_move(player):
+def handle_move(player, objects):
     keys = pygame.key.get_pressed()
     player.x_vel = 0
-    player.y_vel = 0
-    if keys[pygame.K_a]:
+    collide_left = collide(player, objects, -Player_Velocity * 2)
+    collide_right = collide(player, objects, Player_Velocity * 2)
+
+    if keys[pygame.K_a] and not collide_left:
         player.move_left(Player_Velocity)
-    if keys[pygame.K_d]:
+    if keys[pygame.K_d] and not collide_right:
         player.move_right(Player_Velocity)
+
+    vertical_collide = handle_vertical_collision(player, objects, player.y_vel)
+    to_check = [collide_left, collide_right, *vertical_collide]
+
+    for obj in to_check:
+        if obj and obj.name == "fire":
+            player.make_hit()
 
 def main(window):
     clock = pygame.time.Clock()
@@ -275,9 +287,9 @@ def main(window):
             if event.type == pygame.QUIT:
                 run = False
                 break
-        player.gravity_loop(FPS)
-        handle_move(player)
-        draw(window, background, bg_image, player)
+        player.loop(FPS)
+        handle_move(player, objects)
+        draw(window, background, bg_image, player, objects, offset_x)
 
     pygame.quit()
     quit()
